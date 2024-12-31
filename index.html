@@ -3,40 +3,85 @@
   <head>
     <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@6.1.1/dist/aframe-extras.min.js"></script>
     <script>
-      // Gesture detector component
-      AFRAME.registerComponent('gesture-detector', {
+      // Component to enable drag rotation with mouse and touch
+      AFRAME.registerComponent('drag-rotate', {
         schema: {
           enabled: { default: true },
         },
         init: function () {
-          const el = this.el;
-          this.handleGesture = this.handleGesture.bind(this);
-          el.sceneEl.addEventListener('gesture', this.handleGesture);
+          this.isDragging = false;
+          this.previousPosition = { x: 0, y: 0 };
+          this.handleStart = this.handleStart.bind(this);
+          this.handleMove = this.handleMove.bind(this);
+          this.handleEnd = this.handleEnd.bind(this);
+
+          const canvas = this.el.sceneEl.canvas;
+
+          // Mouse events
+          canvas.addEventListener('mousedown', this.handleStart);
+          canvas.addEventListener('mousemove', this.handleMove);
+          canvas.addEventListener('mouseup', this.handleEnd);
+
+          // Touch events
+          canvas.addEventListener('touchstart', this.handleStart);
+          canvas.addEventListener('touchmove', this.handleMove);
+          canvas.addEventListener('touchend', this.handleEnd);
         },
         remove: function () {
-          this.el.sceneEl.removeEventListener('gesture', this.handleGesture);
+          const canvas = this.el.sceneEl.canvas;
+
+          // Remove mouse events
+          canvas.removeEventListener('mousedown', this.handleStart);
+          canvas.removeEventListener('mousemove', this.handleMove);
+          canvas.removeEventListener('mouseup', this.handleEnd);
+
+          // Remove touch events
+          canvas.removeEventListener('touchstart', this.handleStart);
+          canvas.removeEventListener('touchmove', this.handleMove);
+          canvas.removeEventListener('touchend', this.handleEnd);
         },
-        handleGesture: function (event) {
+        handleStart: function (event) {
           if (!this.data.enabled) return;
 
-          const { detail } = event;
-          if (detail.type === 'rotation') {
-            this.el.object3D.rotation.y += detail.delta * 0.01;
+          this.isDragging = true;
+          const pos = this.getEventPosition(event);
+          this.previousPosition.x = pos.x;
+          this.previousPosition.y = pos.y;
+        },
+        handleMove: function (event) {
+          if (!this.isDragging) return;
+
+          const pos = this.getEventPosition(event);
+          const deltaX = pos.x - this.previousPosition.x;
+          const deltaY = pos.y - this.previousPosition.y;
+
+          this.el.object3D.rotation.y += deltaX * 0.01; // Rotate around Y-axis
+          this.el.object3D.rotation.x += deltaY * 0.01; // Optional: Rotate around X-axis
+
+          this.previousPosition.x = pos.x;
+          this.previousPosition.y = pos.y;
+        },
+        handleEnd: function () {
+          this.isDragging = false;
+        },
+        getEventPosition: function (event) {
+          if (event.touches && event.touches[0]) {
+            return { x: event.touches[0].clientX, y: event.touches[0].clientY };
           }
+          return { x: event.clientX, y: event.clientY };
         },
       });
     </script>
   </head>
   <body style="margin: 0; overflow: hidden;">
     <a-scene embedded arjs>
-      <a-marker type="pattern" url="img/test.patt">
+      <a-marker preset="hiro">
         <a-entity
           position="0 0 0"
           scale="0.005 0.005 0.005"
           gltf-model="/toyota_supra/scene.gltf"
-          gesture-detector
+          drag-rotate
         ></a-entity>
       </a-marker>
       <a-entity camera></a-entity>
